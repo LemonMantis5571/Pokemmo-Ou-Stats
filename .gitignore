@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+
+pokemmo_movement_tracker_output/
+
+hook/build/
+hook/dist/
+hook/lib/
+hook/logs/
+hook/runtime/
+hook/*.bak
+
+*.log
+*.bin
