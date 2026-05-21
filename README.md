@@ -38,12 +38,18 @@ python run.py launch
 4. **Relax!** The background daemon thread will immediately wake up and quietly cycle through all 720+ Pokémon in the background. You can watch the console logs populate. The game remains fully playable.
 
 ### 4. Sanitize and Enhance the Dataset
-Once the console outputs `autodump_complete`, close the game and compile the raw stream into a beautiful, dashboard-ready JSON database:
+The raw telemetry is dynamically saved to a date-specific log file depending on the month you requested (e.g. `hook/logs/pvp-stats-may-2026.jsonl`).
+
+To compile and sanitize the dataset into a premium, dashboard-ready JSON database, run:
 ```bash
 python run.py sanitize
 ```
-Your sanitized JSON database is now saved at:
-📂 `hook/logs/pvp-stats-sanitized.json`
+*Note: By default, this will automatically discover and sanitize the newest raw `.jsonl` dump file in your logs directory. You can also explicitly specify a file path:*
+```bash
+python run.py sanitize hook/logs/pvp-stats-may-2026.jsonl
+```
+
+Your sanitized, ranked, and autocomplete-ready JSON database is saved alongside the raw telemetry (e.g. `📂 hook/logs/pvp-stats-may-2026-sanitized.json`).
 
 ---
 
@@ -58,7 +64,7 @@ Pokemmo-Stats-Widget/
 │   │   └── io/pokemmo/hook/PokemonStatsAgent.java
 │   ├── lib/               # Dynamic dependency folder (ByteBuddy, ECJ compiler)
 │   ├── dist/              # Target folder for built JARs
-│   └── logs/              # Contains pvp-stats.jsonl and pvp-stats-sanitized.json
+│   └── logs/              # Date-named telemetry (e.g. pvp-stats-may-2026.jsonl)
 └── parsers/
     └── pokemmo_pvp_stats_parser.py  # Utility to manually decode a raw hex body
 ```

@@ -29,6 +29,7 @@ public final class PokemonStatsAgent {
     private static Instrumentation savedInstrumentation;
     private static volatile boolean autoDumpStarted = false;
     private static final Set<Short> dumpedSpecies = ConcurrentHashMap.newKeySet();
+    private static volatile String dynamicNuLogPath = null;
 
     // c21 click-handler capture (fallback sender strategy)
     private static volatile boolean cg1Captured = false;
@@ -168,6 +169,37 @@ public final class PokemonStatsAgent {
         autoDumpStarted = true;
 
         try {
+            // Determine dynamic log path from requested month
+            if (constructorArgs.length > 0 && constructorArgs[0] instanceof Number) {
+                int monthVal = ((Number) constructorArgs[0]).intValue();
+                if (monthVal >= 1 && monthVal <= 12) {
+                    int currentMonth = java.time.LocalDate.now().getMonthValue();
+                    int currentYear = java.time.LocalDate.now().getYear();
+                    int year = currentYear;
+                    if (monthVal > currentMonth) {
+                        year = currentYear - 1;
+                    }
+                    String[] MONTH_NAMES = {
+                        "", "january", "february", "march", "april", "may", "june",
+                        "july", "august", "september", "october", "november", "december"
+                    };
+                    String monthName = MONTH_NAMES[monthVal];
+                    String custom = System.getProperty("pokemmo.hook.log");
+                    if (custom != null && !custom.isBlank()) {
+                        File originalFile = new File(custom);
+                        File parentDir = originalFile.getParentFile();
+                        if (parentDir != null) {
+                            dynamicNuLogPath = new File(parentDir, "pvp-stats-" + monthName + "-" + year + ".jsonl").getAbsolutePath();
+                        } else {
+                            dynamicNuLogPath = "pvp-stats-" + monthName + "-" + year + ".jsonl";
+                        }
+                    } else {
+                        dynamicNuLogPath = System.getProperty("user.home") + File.separator + "pvp-stats-" + monthName + "-" + year + ".jsonl";
+                    }
+                    logLine("agent", "{\"event\":\"dynamic_log_path\",\"path\":\"" + escape(dynamicNuLogPath) + "\"}");
+                }
+            }
+
             Class<?> te0Class = self.getClass();
 
             // --- Discovery: log Te0 class structure ---
@@ -741,6 +773,9 @@ public final class PokemonStatsAgent {
     // =========================================================================
 
     private static String getLogPath(String channel) {
+        if ("nu".equals(channel) && dynamicNuLogPath != null) {
+            return dynamicNuLogPath;
+        }
         String custom = System.getProperty("pokemmo.hook.log");
         if (custom != null && !custom.isBlank()) {
             return custom;

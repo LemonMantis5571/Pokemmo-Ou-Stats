@@ -277,11 +277,41 @@ def cmd_sanitize(args):
     print_banner()
     paths = get_paths()
     
-    if not paths["log_jsonl"].exists():
-        print(f"❌ Log file not found at {paths['log_jsonl']}! Please launch the game first to dump stats.")
-        sys.exit(1)
+    input_file = None
+    if len(args) > 0 and not args[0].startswith("-"):
+        input_file = Path(args[0]).resolve()
+        if not input_file.exists() or not input_file.is_file():
+            print(f"❌ Specified log file not found at {input_file}!")
+            sys.exit(1)
+    else:
+        # Scan hook/logs/ for files matching pvp-stats-*.jsonl
+        import glob
+        log_dir = paths["hook_logs"]
+        pattern = str(log_dir / "pvp-stats-*.jsonl")
+        matching_files = glob.glob(pattern)
         
-    print(f"Sanitizing log file: {paths['log_jsonl'].name}...")
+        if matching_files:
+            # Sort by modification time in descending order to get the newest file
+            matching_files.sort(key=os.path.getmtime, reverse=True)
+            input_file = Path(matching_files[0]).resolve()
+        else:
+            # Fall back to hook/logs/pvp-stats.jsonl
+            fallback = paths["log_jsonl"]
+            if fallback.exists():
+                input_file = fallback.resolve()
+            else:
+                print(f"❌ No log files found in {log_dir}!")
+                print("Please launch the game first to dump stats or specify a file path:")
+                print("  python run.py sanitize [file_path]")
+                sys.exit(1)
+
+    # Derive output sanitized JSON path dynamically
+    if input_file.suffix == '.jsonl':
+        output_file = input_file.with_name(input_file.stem + "-sanitized.json")
+    else:
+        output_file = input_file.with_name(input_file.name + "-sanitized.json")
+        
+    print(f"Sanitizing log file: {input_file.name}...")
     
     # Load optional local translation maps if they exist in hook/lib/
     items_map = {}
@@ -331,7 +361,7 @@ def cmd_sanitize(args):
     raw_packets = []
     seen_species = set()
     
-    with open(paths["log_jsonl"], "r", encoding="utf-8") as f:
+    with open(input_file, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -413,22 +443,26 @@ def cmd_sanitize(args):
     by_name = {p["name"].lower(): p for p in sanitized_list}
     by_id = {str(p["id"]): p for p in sanitized_list}
 
+    # ISO Format generatedAt timestamp dynamically using timezone-aware UTC time
+    import datetime
+    generated_at_iso = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     final_payload = {
         "metadata": {
             "totalSpeciesWithStats": len(sanitized_list),
             "totalMatchesRecorded": max([p.get("overallMatches", 0) for p in sanitized_list]) if sanitized_list else 0,
-            "generatedAt": "2026-05-21T05:00:00Z"
+            "generatedAt": generated_at_iso
         },
         "statsList": sanitized_list,
         "statsByName": by_name,
         "statsById": by_id
     }
 
-    with open(paths["log_json"], "w", encoding="utf-8") as out:
+    with open(output_file, "w", encoding="utf-8") as out:
         json.dump(final_payload, out, indent=2, ensure_ascii=False)
         
-    print(f"✨ Successfully saved sanitized dataset to:")
-    print(f"   {paths['log_json']}")
+    print("✨ Successfully saved sanitized dataset to:")
+    print(f"   {output_file}")
     print("==========================================================")
 
 def cmd_clean(args):
@@ -464,7 +498,8 @@ def show_help():
     print("Commands:")
     print("  build             Download missing dependencies, compile, and package the Java agent.")
     print("  launch            Compile agent (if needed) and run PokeMMO with agent attached.")
-    print("  sanitize          Convert raw JSONL telemetry into dashboard-ready, sorted, enhanced JSON.")
+    print("  sanitize [file]   Convert raw JSONL telemetry into dashboard-ready, sorted, enhanced JSON.")
+    print("                    (If no file is given, automatically sanitizes the newest log file)")
     print("  clean             Prune target build directories, class files, and intermediate artifacts.")
     print("                    (Use '--keep-logs' to preserve dumped statistics files)")
     print("  help              Show this help menu.")
