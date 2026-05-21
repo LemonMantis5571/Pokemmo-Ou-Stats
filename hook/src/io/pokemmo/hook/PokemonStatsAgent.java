@@ -301,6 +301,7 @@ public final class PokemonStatsAgent {
                 long delay = Long.parseLong(
                     System.getProperty("pokemmo.hook.dump.delay", "300"));
                 logLine("agent", "{\"event\":\"autodump_start\",\"delay\":" + delay + "}");
+                System.out.println("\n[PokeMMO Stats Hook] Starting background auto-dump (delay: " + delay + "ms)...");
 
                 // Give time for the first response + c21 capture
                 Thread.sleep(3000);
@@ -340,12 +341,13 @@ public final class PokemonStatsAgent {
                     + (capturedCG1Args != null) + " cg1SpeciesIdx="
                     + cg1SpeciesIdx + "\"}");
 
-                autoDumpStarted = false; // Reset flag so next click can retry
-
             } catch (Throwable t) {
                 logLine("agent", "{\"event\":\"autodump_thread_error\",\"message\":\""
                     + escape(t.toString()) + "\"}");
-                autoDumpStarted = false; // Reset flag on thread error
+            } finally {
+                autoDumpStarted = false;
+                dumpedSpecies.clear();
+                System.out.println("[PokeMMO Stats Hook] Background auto-dump thread finished.");
             }
         }, "pokemmo-auto-dump");
         thread.setDaemon(true);
@@ -374,6 +376,7 @@ public final class PokemonStatsAgent {
         List<Short> species = getSpeciesList();
         logLine("agent", "{\"event\":\"autodump_species_count\",\"count\":" + species.size() + "}");
         int sent = 0, skipped = 0, total = species.size();
+        System.out.println("[PokeMMO Stats Hook] Direct Sender Strategy: starting dump of " + total + " species...");
 
         for (Short speciesId : species) {
             if (dumpedSpecies.contains(speciesId)) { skipped++; continue; }
@@ -393,6 +396,7 @@ public final class PokemonStatsAgent {
         }
         logLine("agent", "{\"event\":\"autodump_complete\",\"sent\":" + sent
             + ",\"skipped\":" + skipped + ",\"total\":" + total + "}");
+        System.out.println("[PokeMMO Stats Hook] Auto-dump COMPLETED! Sent: " + sent + ", Skipped: " + skipped + ", Total: " + total);
     }
 
     /**
@@ -405,6 +409,7 @@ public final class PokemonStatsAgent {
         List<Short> species = getSpeciesList();
         logLine("agent", "{\"event\":\"autodump_species_count\",\"count\":" + species.size() + "}");
         int sent = 0, skipped = 0, total = species.size();
+        System.out.println("[PokeMMO Stats Hook] CG1 Replay Strategy: starting dump of " + total + " species...");
 
         for (Short speciesId : species) {
             if (dumpedSpecies.contains(speciesId)) { skipped++; continue; }
@@ -423,11 +428,13 @@ public final class PokemonStatsAgent {
         }
         logLine("agent", "{\"event\":\"autodump_complete\",\"sent\":" + sent
             + ",\"skipped\":" + skipped + ",\"total\":" + total + "}");
+        System.out.println("[PokeMMO Stats Hook] Auto-dump COMPLETED! Sent: " + sent + ", Skipped: " + skipped + ", Total: " + total);
     }
 
     private static void logProgress(int sent, int skipped, int total) {
         logLine("agent", "{\"event\":\"autodump_progress\",\"sent\":" + sent
             + ",\"skipped\":" + skipped + ",\"total\":" + total + "}");
+        System.out.println("[PokeMMO Stats Hook] Auto-dump progress: requested " + (sent + skipped) + "/" + total + " species...");
     }
 
     /**
@@ -773,7 +780,7 @@ public final class PokemonStatsAgent {
     // =========================================================================
 
     private static String getLogPath(String channel) {
-        if ("nu".equals(channel) && dynamicNuLogPath != null) {
+        if (dynamicNuLogPath != null) {
             return dynamicNuLogPath;
         }
         String custom = System.getProperty("pokemmo.hook.log");
