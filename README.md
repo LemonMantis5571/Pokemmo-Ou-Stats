@@ -82,4 +82,11 @@ python run.py clean
 ---
 
 ## ⚖️ Legal & Disclaimer
-This project is created solely for educational, research, and hobbyist purposes. It exists as an academic exploration of JVM runtime instrumentation, bytecode manipulation, and local telemetry extraction techniques. It is intended for private study and personal research only.
+
+**This project is created solely for educational, research, and hobbyist purposes.** 
+
+- **No Intent to Harm or Exploit:** The purpose of this project is to study Java Virtual Machine (JVM) runtime instrumentation, bytecode manipulation, and local telemetry extraction. It is not designed, intended, or recommended to facilitate cheating, automation (botting), exploitation, or any form of unfair play in the game.
+- **Research Purpose Only:** This project exists solely as an academic exploration of JVM runtime instrumentation, bytecode manipulation, and local telemetry extraction techniques. It is intended for private study and personal research only.
+- **Use at Your Own Risk:** The author(s) and contributor(s) of this project are not responsible for any actions taken against your accounts, hardware, or systems as a result of using, compiling, or reading this code.
+- **No Affiliation:** This project is completely independent and has no affiliation, endorsement, or association with PokeMMO or its parent companies. All trademarks and assets belong to their respective owners.
+- **Provided "As-Is":** This software is provided "as-is" without any express or implied warranties. Use of this material is entirely at the user's own discretion and liability.
