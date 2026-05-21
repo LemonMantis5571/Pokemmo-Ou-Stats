@@ -1,65 +1,79 @@
-# Pokemmo-Stats-Widget
+# 🔱 PokeMMO PvP Stats Scraper & Enhancer
 
-Utilities for researching and collecting PokeMMO statistics from two sources:
+A powerful, cross-platform, zero-dependency suite for collecting and sanitizing PvP usage statistics directly from the PokeMMO in-game client. 
 
-- forum movement threads
-- the in-game PvP Statistics window
+This toolkit reverse-engineers the client UI and network packets, using a lightweight Java agent to programmatically and hands-free query the stats database for **all 720+ Pokémon** in under 4 minutes. It then sanitizes and enhances the raw logs into a premium, ranked, autocomplete-ready JSON database tailored for modern web dashboards.
 
-## Contents
+---
 
-- `trackers/pokemmo_movement_tracker.py`
-  - Crawls PokeMMO forum movement threads
-  - Exports JSON snapshots and a flat CSV
-- `parsers/pokemmo_pvp_stats_parser.py`
-  - Decodes the reverse-engineered inbound PvP stats packet body (`nu`, opcode `95`)
-- `hook/`
-  - Java agent source and PowerShell scripts for launching PokeMMO with a stats hook
+## 📦 Features
 
-## Forum Movement Tracker
+- **🎮 Cross-Platform CLI (`run.py`)**: A single, dependency-free Python manager that handles compiling, launching, sanitizing, and cleaning across Linux (Flatpak/Native), Windows, and macOS.
+- **⚡ Programmatic Auto-Dump**: Attaches a Java agent to the client via ByteBuddy. Clicking exactly **one** Pokémon in the PvP stats window starts a robust, client-side replayer that requests the statistics of all 720+ species sequentially (safely throttled at 300ms).
+- **📈 Advanced Sanitization**: Compiles the raw packet streams into a sorted, rank-assigned JSON database. Calculates global `winRate`, `usageRate`, and provides O(1) dictionary key-maps for instant autocomplete lookups on the frontend.
+- **🛡️ Clean & Obfuscation-Agnostic**: Dynamically intercepts the obfuscated GUI click-handler and resolves translations (species names, items, natures, abilities, and allies) directly through the client's internal registries.
 
-Install Python dependencies:
+---
 
-```powershell
-python -m pip install requests
+## 🚀 Quick Start Guide
+
+Everything is managed via the unified `./run.py` script at the root of the project.
+
+### 1. Build the Java Agent
+This downloads the required libraries (`byte-buddy` and the Eclipse compiler if `javac` is missing) and packages the Java hook agent JAR:
+```bash
+python run.py build
 ```
 
-Run:
-
-```powershell
-python .\trackers\pokemmo_movement_tracker.py
+### 2. Launch PokeMMO with the Hook
+This attaches the agent to the PokeMMO JVM. It automatically detects if you are running PokeMMO via **Flatpak** (common on Steam Deck/Linux) or natively (Windows/Linux) and injects the hook:
+```bash
+python run.py launch
 ```
 
-Outputs are written to `pokemmo_movement_tracker_output/` by default.
+### 3. Trigger the Dump
+1. Log into your PokeMMO account and open the in-game **PvP Matchmaking menu**.
+2. Click on the **Statistics (Estadísticas)** tab.
+3. Click on **exactly one Pokémon** (e.g. Garchomp).
+4. **Relax!** The background daemon thread will immediately wake up and quietly cycle through all 720+ Pokémon in the background. You can watch the console logs populate. The game remains fully playable.
 
-## PvP Packet Parser
+### 4. Sanitize and Enhance the Dataset
+Once the console outputs `autodump_complete`, close the game and compile the raw stream into a beautiful, dashboard-ready JSON database:
+```bash
+python run.py sanitize
+```
+Your sanitized JSON database is now saved at:
+📂 `hook/logs/pvp-stats-sanitized.json`
 
-The parser expects the decoded `nu` packet body, not the encrypted network frame.
+---
 
-Example:
+## 📁 Repository Structure
 
-```powershell
-python .\parsers\pokemmo_pvp_stats_parser.py --hex "BD01..."
+```
+Pokemmo-Stats-Widget/
+├── run.py                 # Unified cross-platform CLI manager
+├── README.md              # Documentation
+├── hook/
+│   ├── src/               # Java hook source code
+│   │   └── io/pokemmo/hook/PokemonStatsAgent.java
+│   ├── lib/               # Dynamic dependency folder (ByteBuddy, ECJ compiler)
+│   ├── dist/              # Target folder for built JARs
+│   └── logs/              # Contains pvp-stats.jsonl and pvp-stats-sanitized.json
+└── parsers/
+    └── pokemmo_pvp_stats_parser.py  # Utility to manually decode a raw hex body
 ```
 
-## PokeMMO Hook
+---
 
-The bundled PokeMMO runtime does not expose `java.instrument`, so the hook launcher uses a portable external JDK 17.
+## 🧹 Maintenance Commands
 
-Build the hook:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\hook\build-hook.ps1
+To prune target folders, intermediate build artifacts, and class directories:
+```bash
+python run.py clean
 ```
+*(To preserve your dumped stats and only clean class/build files, run `python run.py clean --keep-logs`.)*
 
-Launch PokeMMO with the hook:
+---
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\hook\Launch-PokeMMO-With-Hook.ps1
-```
-
-The hook writes JSONL logs under `hook/logs/`.
-
-## Notes
-
-- This repo contains research tooling and reverse-engineering helpers.
-- It does not include decompiled client dumps, build outputs, runtime downloads, or personal logs.
+## ⚖️ Legal & Disclaimer
+This project is created solely for educational, research, and hobbyist purposes. It exists as an academic exploration of JVM runtime instrumentation, bytecode manipulation, and local telemetry extraction techniques. It is intended for private study and personal research only.
