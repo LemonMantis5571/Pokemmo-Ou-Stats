@@ -38,7 +38,9 @@ def get_paths():
         "log_jsonl": root / "hook" / "logs" / "pvp-stats.jsonl",
         "log_json": root / "hook" / "logs" / "pvp-stats-sanitized.json",
         "byte_buddy_jar": root / "hook" / "lib" / f"byte-buddy-{BYTE_BUDDY_VERSION}.jar",
-        "ecj_jar": root / "hook" / "lib" / f"ecj-{ECJ_VERSION}.jar"
+        "ecj_jar": root / "hook" / "lib" / f"ecj-{ECJ_VERSION}.jar",
+        "item_data": root / "hook" / "lib" / "item-data.json",
+        "abilities_data": root / "hook" / "lib" / "abilities-data.json"
     }
 
 def download_file(url, dest_path):
@@ -281,6 +283,51 @@ def cmd_sanitize(args):
         
     print(f"Sanitizing log file: {paths['log_jsonl'].name}...")
     
+    # Load optional local translation maps if they exist in hook/lib/
+    items_map = {}
+    if paths["item_data"].exists():
+        print("ℹ️ Local item-data.json found. Enabling optional item translation...")
+        try:
+            with open(paths["item_data"], "r", encoding="utf-8") as f:
+                item_data = json.load(f)
+                for key, item in item_data.items():
+                    sprite_id = item.get("sprite")
+                    if sprite_id is not None:
+                        en_name = item.get("name_translations", {}).get("en", {}).get("name")
+                        if not en_name:
+                            en_name = item.get("name")
+                        if en_name:
+                            items_map[int(sprite_id)] = en_name
+        except Exception as e:
+            print(f"⚠️ Warning: Could not load local items translation data: {e}")
+
+    abilities_map = {}
+    if paths["abilities_data"].exists():
+        print("ℹ️ Local abilities-data.json found. Enabling optional ability translation...")
+        try:
+            with open(paths["abilities_data"], "r", encoding="utf-8") as f:
+                ab_data = json.load(f)
+                for key, ab in ab_data.items():
+                    ab_id = ab.get("id")
+                    if ab_id is not None:
+                        en_name = ab.get("name_translations", {}).get("en", {}).get("name")
+                        if not en_name:
+                            en_name = ab.get("name")
+                            if en_name:
+                                en_name = en_name.replace("-", " ").title()
+                        if en_name:
+                            abilities_map[int(ab_id)] = en_name
+        except Exception as e:
+            print(f"⚠️ Warning: Could not load local abilities translation data: {e}")
+
+    NATURES_MAP = {
+        0: "Hardy", 1: "Lonely", 2: "Brave", 3: "Adamant", 4: "Naughty",
+        5: "Bold", 6: "Docile", 7: "Relaxed", 8: "Impish", 9: "Lax",
+        10: "Timid", 11: "Hasty", 12: "Serious", 13: "Jolly", 14: "Naive",
+        15: "Modest", 16: "Mild", 17: "Quiet", 18: "Bashful", 19: "Rash",
+        20: "Calm", 21: "Gentle", 22: "Sassy", 23: "Careful", 24: "Quirky"
+    }
+
     raw_packets = []
     seen_species = set()
     
@@ -311,15 +358,25 @@ def cmd_sanitize(args):
         win_rate = round((wins / usage * 100.0), 2) if usage > 0 else 0.0
         usage_rate = round((usage / matches * 100.0), 2) if matches > 0 else 0.0
         
-        def clean_entries(entries):
+        def clean_entries(entries, category):
             cleaned = []
             for entry in entries:
                 entry_id = entry.get("id")
                 original_name = entry.get("name", "Unknown")
                 
+                # Apply local translations if available
+                translated_name = original_name
+                if category == "item" and entry_id is not None and items_map:
+                    translated_name = items_map.get(int(entry_id), original_name)
+                elif category == "ability" and entry_id is not None and abilities_map:
+                    translated_name = abilities_map.get(int(entry_id), original_name)
+                elif category == "nature" and entry_id is not None and (items_map or abilities_map):
+                    # Fall back to English nature translation when translation mode is enabled
+                    translated_name = NATURES_MAP.get(int(entry_id), original_name)
+                
                 cleaned.append({
                     "id": entry_id,
-                    "name": original_name,
+                    "name": translated_name,
                     "count": entry.get("count", 0),
                     "percent": round(entry.get("percent", 0.0), 2)
                 })
@@ -341,10 +398,10 @@ def cmd_sanitize(args):
                 "matches": p.get("tournamentMatches", 0),
                 "usage": p.get("tournamentUsageCount", 0)
             },
-            "topItems": clean_entries(p.get("topItems", [])),
-            "topNatures": clean_entries(p.get("topNatures", [])),
-            "topAbilities": clean_entries(p.get("topAbilities", [])),
-            "commonAllies": clean_entries(p.get("commonAllies", []))
+            "topItems": clean_entries(p.get("topItems", []), "item"),
+            "topNatures": clean_entries(p.get("topNatures", []), "nature"),
+            "topAbilities": clean_entries(p.get("topAbilities", []), "ability"),
+            "commonAllies": clean_entries(p.get("commonAllies", []), "species")
         })
 
     # Sort descending by usage and assign rank
